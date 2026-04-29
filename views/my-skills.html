@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <title>My Skills — SkillSwap</title>
+  <link rel="stylesheet" href="/css/style.css"/>
+  <script src="/js/theme.js"></script>
+</head>
+<body>
+  <nav class="navbar">
+    <a class="nav-logo" href="/dashboard">🔄 SkillSwap</a>
+    <div class="nav-links">
+      <a href="/dashboard">Dashboard</a>
+      <a href="/my-skills">My Skills</a>
+      <a href="/network">Network</a>
+      <a href="/matches">Find Matches</a>
+      <button onclick="logout()">Logout</button>
+    </div>
+  </nav>
+
+  <div class="container">
+    <h2>My Skills</h2>
+    <p style="color:#6b7280;margin-bottom:1.5rem;">Add skills you can teach and skills you want to learn.</p>
+
+    <div class="two-col">
+      <!-- Add skill form -->
+      <div class="card">
+        <h3>➕ Add a Skill</h3>
+        <br/>
+        <label>Skill Name</label>
+        <input type="text" id="skill-name" placeholder="e.g. Python, Guitar, Cooking"/>
+
+        <label>Category</label>
+        <div class="custom-select">
+            <button type="button" class="select-btn" onclick="toggleDropdown('cat-menu')">
+                <span id="cat-selected">Technology</span>
+            </button>
+            <div id="cat-menu" class="select-menu" style="display:none;">
+                <div onclick="selectOption('cat-selected','cat-menu','Technology')">Technology</div>
+                <div onclick="selectOption('cat-selected','cat-menu','Music')">Music</div>
+                <div onclick="selectOption('cat-selected','cat-menu','Language')">Language</div>
+                <div onclick="selectOption('cat-selected','cat-menu','Art')">Art</div>
+                <div onclick="selectOption('cat-selected','cat-menu','Sports')">Sports</div>
+                <div onclick="selectOption('cat-selected','cat-menu','Cooking')">Cooking</div>
+                <div onclick="selectOption('cat-selected','cat-menu','Business')">Business</div>
+                <div onclick="selectOption('cat-selected','cat-menu','Other')">Other</div>
+            </div>
+        </div>
+
+        <label>Your Level</label>
+        <div class="custom-select">
+        <button type="button" class="select-btn" onclick="toggleDropdown('level-menu')">
+            <span id="level-selected">Beginner</span>
+        </button>
+        <div id="level-menu" class="select-menu" style="display:none;">
+            <div onclick="selectOption('level-selected','level-menu','beginner')">Beginner</div>
+            <div onclick="selectOption('level-selected','level-menu','intermediate')">Intermediate</div>
+            <div onclick="selectOption('level-selected','level-menu','expert')">Expert</div>
+        </div>
+    </div>
+
+        <label>Type</label>
+        <div class="radio-group">
+          <label class="radio-label">
+            <input type="radio" name="skill-type" value="offer" checked/> I can Teach this
+          </label>
+          <label class="radio-label">
+            <input type="radio" name="skill-type" value="want"/> I want to Learn this
+          </label>
+        </div>
+
+        <button class="primary-btn" style="margin-top:1rem;" onclick="addSkill()">Add Skill</button>
+        <p id="skill-msg" class="error-msg"></p>
+      </div>
+
+      <!-- My skills list -->
+      <div>
+        <div class="card" style="margin-bottom:1rem;">
+          <h3>✅ Skills I Can Teach</h3>
+          <div id="offer-list"><p class="empty-msg">No skills added yet.</p></div>
+        </div>
+        <div class="card">
+          <h3>🎯 Skills I Want to Learn</h3>
+          <div id="want-list"><p class="empty-msg">No skills added yet.</p></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    loadSkills();
+
+    function toggleDropdown(menuId) {
+      const menu = document.getElementById(menuId);
+      menu.style.display = menu.style.display === 'none' ? 'block' : 'none';
+    }
+
+    function selectOption(labelId, menuId, value) {
+      document.getElementById(labelId).textContent = value;
+      document.getElementById(menuId).style.display = 'none';
+    }
+
+    async function addSkill() {
+        const skill_name = document.getElementById('skill-name').value.trim();
+        const category = document.getElementById('cat-selected').textContent.trim();
+        const level = document.getElementById('level-selected').textContent.trim().toLowerCase();
+        const type = document.querySelector('input[name="skill-type"]:checked').value;
+
+      if (!skill_name) {
+        document.getElementById('skill-msg').textContent = 'Please enter a skill name.';
+        return;
+      }
+
+      const res = await fetch('/skills/add', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ skill_name, category, level, type })
+      });
+      const data = await res.json();
+
+      if (data.success) {
+        document.getElementById('skill-name').value = '';
+        document.getElementById('skill-msg').textContent = '';
+        loadSkills();
+      } else {
+        document.getElementById('skill-msg').textContent = data.error;
+      }
+    }
+
+    async function loadSkills() {
+      const res = await fetch('/skills/mine');
+      const skills = await res.json();
+
+      const offers = skills.filter(s => s.type === 'offer');
+      const wants = skills.filter(s => s.type === 'want');
+
+      document.getElementById('offer-list').innerHTML = offers.length
+        ? offers.map(s => `
+            <div class="skill-tag offer">
+              <strong>${s.skill_name}</strong>
+              <span class="level-badge">${s.level}</span>
+              <span class="cat-badge">${s.category}</span>
+            </div>`).join('')
+        : '<p class="empty-msg">No skills added yet.</p>';
+
+      document.getElementById('want-list').innerHTML = wants.length
+        ? wants.map(s => `
+            <div class="skill-tag want">
+              <strong>${s.skill_name}</strong>
+              <span class="level-badge">${s.level}</span>
+              <span class="cat-badge">${s.category}</span>
+            </div>`).join('')
+        : '<p class="empty-msg">No skills added yet.</p>';
+    }
+
+    async function logout() {
+      await fetch('/auth/logout', { method: 'POST' });
+      window.location.href = '/';
+    }
+  </script>
+</body>
+</html>

@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>SkillSwap</title>
+  <link rel="stylesheet" href="/css/style.css" />
+</head>
+<body>
+  <div class="auth-container">
+    <div class="auth-box">
+      <h1>🔄 SkillSwap</h1>
+      <p class="tagline">Teach what you know. Learn what you don't.</p>
+
+      <!-- Tab buttons -->
+      <div class="tab-buttons">
+        <button class="tab-btn active" onclick="showTab('login')">Login</button>
+        <button class="tab-btn" onclick="showTab('register')">Register</button>
+      </div>
+
+      <!-- Login Form -->
+      <div id="login-tab">
+        <input type="email" id="login-email" placeholder="Email" />
+        <input type="password" id="login-password" placeholder="Password" />
+        <button class="primary-btn" onclick="login()">Login</button>
+        <p id="login-error" class="error-msg"></p>
+      </div>
+
+      <!-- Register Form -->
+      <div id="register-tab" style="display:none;">
+        <input type="text" id="reg-name" placeholder="Full Name" />
+        <input type="email" id="reg-email" placeholder="Email" />
+        <input type="password" id="reg-password" placeholder="Password" />
+        <input type="text" id="reg-location" placeholder="City (optional)" />
+        <button class="primary-btn" onclick="register()">Create Account</button>
+        <p id="register-error" class="error-msg"></p>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    function showTab(tab) {
+      document.getElementById('login-tab').style.display = tab === 'login' ? 'block' : 'none';
+      document.getElementById('register-tab').style.display = tab === 'register' ? 'block' : 'none';
+      document.querySelectorAll('.tab-btn').forEach((btn, i) => {
+        btn.classList.toggle('active', (i === 0 && tab === 'login') || (i === 1 && tab === 'register'));
+      });
+    }
+
+    async function login() {
+      const email = document.getElementById('login-email').value;
+      const password = document.getElementById('login-password').value;
+
+      const res = await fetch('/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password })
+      });
+      const data = await res.json();
+
+      if (data.success) {
+        window.location.href = '/dashboard';
+      } else {
+        document.getElementById('login-error').textContent = data.error;
+      }
+    }
+
+    async function register() {
+      const name = document.getElementById('reg-name').value;
+      const email = document.getElementById('reg-email').value;
+      const password = document.getElementById('reg-password').value;
+      const location = document.getElementById('reg-location').value;
+
+      const res = await fetch('/auth/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, email, password, location })
+      });
+      const data = await res.json();
+
+      if (data.success) {
+        window.location.href = '/dashboard';
+      } else {
+        document.getElementById('register-error').textContent = data.error;
+      }
+    }
+  </script>
+</body>
+</html>

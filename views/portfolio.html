@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <title>My Portfolio — SkillSwap</title>
+  <link rel="stylesheet" href="/css/style.css"/>
+  <script src="/js/theme.js"></script>
+</head>
+<body>
+  <nav class="navbar">
+    <a class="nav-logo" href="/dashboard">🔄 SkillSwap</a>
+    <div class="nav-links">
+      <a href="/dashboard">Dashboard</a>
+      <a href="/my-skills">My Skills</a>
+      <a href="/network">Network</a>
+      <a href="/matches">Find Matches</a>
+      <a href="/swaps">My Swaps</a>
+      <a href="/portfolio">Portfolio</a>
+      <div class="theme-toggle" onclick="toggleTheme()">
+        <span class="toggle-icon">☀️</span>
+        <div class="toggle-track">
+            <div class="toggle-knob"></div>
+        </div>
+        <span class="toggle-icon">🌙</span>
+    </div>
+      <button onclick="logout()">Logout</button>
+    </div>
+  </nav>
+
+  <div class="container">
+    <h2>📁 My Portfolio</h2>
+    <p style="color:#6b7280;margin-bottom:1.5rem;">Showcase your skills and experience. Stored in CouchDB.</p>
+
+    <div class="two-col">
+      <div class="card">
+        <h3>✏️ Edit Portfolio</h3>
+        <br/>
+
+        <label>About Me</label>
+        <textarea id="about" rows="4" placeholder="Tell people about yourself..."></textarea>
+
+        <label>Experience & Background</label>
+        <textarea id="experience" rows="4" placeholder="What's your background with your skills?"></textarea>
+
+        <label>Achievements (one per line)</label>
+        <textarea id="achievements" rows="3" placeholder="e.g. Won hackathon 2024&#10;Completed AWS certification"></textarea>
+
+        <label>Links (one per line)</label>
+        <textarea id="links" rows="3" placeholder="e.g. https://github.com/yourname&#10;https://linkedin.com/in/yourname"></textarea>
+
+        <button class="primary-btn" style="margin-top:1rem;" onclick="savePortfolio()">Save Portfolio</button>
+        <p id="portfolio-msg" style="color:#10b981;margin-top:0.5rem;font-size:0.9rem;"></p>
+      </div>
+
+      <div class="card">
+        <h3>👁️ Preview</h3>
+        <br/>
+        <div id="preview-about" style="color:#6b7280;font-size:0.9rem;">Your about section will appear here.</div>
+        <br/>
+        <div id="preview-exp" style="color:#6b7280;font-size:0.9rem;"></div>
+        <div id="preview-achievements"></div>
+        <div id="preview-links"></div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    loadPortfolio();
+
+    // Heartbeat — tell Redis we're online
+    setInterval(() => {
+      fetch('/portfolio/heartbeat', { method: 'POST' });
+    }, 30000);
+    fetch('/portfolio/heartbeat', { method: 'POST' });
+
+    async function loadPortfolio() {
+      const res = await fetch('/portfolio/me');
+      const data = await res.json();
+
+      document.getElementById('about').value = data.about || '';
+      document.getElementById('experience').value = data.experience || '';
+      document.getElementById('achievements').value = (data.achievements || []).join('\n');
+      document.getElementById('links').value = (data.links || []).join('\n');
+
+      updatePreview(data);
+    }
+
+    async function savePortfolio() {
+      const about = document.getElementById('about').value;
+      const experience = document.getElementById('experience').value;
+      const achievements = document.getElementById('achievements').value.split('\n').filter(l => l.trim());
+      const links = document.getElementById('links').value.split('\n').filter(l => l.trim());
+
+      const res = await fetch('/portfolio/save', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ about, experience, achievements, links })
+      });
+      const data = await res.json();
+
+      if (data.success) {
+        document.getElementById('portfolio-msg').textContent = '✅ Portfolio saved!';
+        updatePreview({ about, experience, achievements, links });
+        setTimeout(() => document.getElementById('portfolio-msg').textContent = '', 3000);
+      }
+    }
+
+    function updatePreview(data) {
+      document.getElementById('preview-about').textContent = data.about || 'No about section yet.';
+      document.getElementById('preview-exp').textContent = data.experience || '';
+
+      document.getElementById('preview-achievements').innerHTML = (data.achievements || []).length
+        ? '<br/><strong style="font-size:0.85rem;">🏆 Achievements</strong><ul style="margin-top:6px;">' +
+          data.achievements.map(a => `<li style="font-size:0.9rem;color:#374151;">${a}</li>`).join('') + '</ul>'
+        : '';
+
+      document.getElementById('preview-links').innerHTML = (data.links || []).length
+        ? '<br/><strong style="font-size:0.85rem;">🔗 Links</strong><div style="margin-top:6px;">' +
+          data.links.map(l => `<a href="${l}" target="_blank" style="display:block;font-size:0.9rem;color:#4f46e5;">${l}</a>`).join('') + '</div>'
+        : '';
+    }
+
+    async function logout() {
+      await fetch('/auth/logout', { method: 'POST' });
+      window.location.href = '/';
+    }
+  </script>
+
+  <style>
+    textarea {
+      width: 100%;
+      padding: 0.75rem 1rem;
+      border: 1.5px solid #e5e7eb;
+      border-radius: 8px;
+      font-size: 0.95rem;
+      margin-bottom: 0.75rem;
+      outline: none;
+      resize: vertical;
+      font-family: inherit;
+    }
+    textarea:focus { border-color: #4f46e5; }
+  </style>
+</body>
+</html>

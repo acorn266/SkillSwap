@@ -1,0 +1,429 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <title>Skill Network — SkillSwap</title>
+  <link rel="stylesheet" href="/css/style.css"/>
+  <script src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
+  <style>
+    :root {
+      --bg: #f0f2f5;
+      --surface: #ffffff;
+      --surface2: #f9fafb;
+      --border: #e5e7eb;
+      --text-primary: #111827;
+      --text-secondary: #6b7280;
+      --accent: #4f46e5;
+      --nav-bg: #ffffff;
+      --nav-shadow: 0 1px 4px rgba(0,0,0,0.08);
+      --card-shadow: 0 2px 8px rgba(0,0,0,0.06);
+      --stat-bg: #ffffff;
+      --btn-bg: #ffffff;
+      --btn-hover: #f3f4f6;
+      --graph-bg: #ffffff;
+      --toggle-bg: #e5e7eb;
+      --toggle-knob: #ffffff;
+    }
+
+    [data-theme="dark"] {
+      --bg: #0f0f13;
+      --surface: #1a1a24;
+      --surface2: #22222f;
+      --border: #2e2e3e;
+      --text-primary: #f1f1f5;
+      --text-secondary: #9ca3af;
+      --accent: #818cf8;
+      --nav-bg: #13131a;
+      --nav-shadow: 0 1px 4px rgba(0,0,0,0.4);
+      --card-shadow: 0 2px 16px rgba(0,0,0,0.3);
+      --stat-bg: #1a1a24;
+      --btn-bg: #1e1e2a;
+      --btn-hover: #26263a;
+      --graph-bg: #13131a;
+      --toggle-bg: #4f46e5;
+      --toggle-knob: #ffffff;
+    }
+
+    * { transition: background 0.3s ease, color 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease; }
+
+    body { background: var(--bg); color: var(--text-primary); }
+
+    .navbar {
+      background: var(--nav-bg) !important;
+      box-shadow: var(--nav-shadow) !important;
+    }
+    .nav-logo { color: var(--accent) !important; }
+    .nav-links a { color: var(--text-secondary) !important; }
+    .nav-links a:hover { background: var(--btn-hover) !important; color: var(--text-primary) !important; }
+    .nav-links button {
+      background: var(--btn-bg) !important;
+      color: var(--text-secondary) !important;
+      border: 1px solid var(--border) !important;
+    }
+    .nav-links button:hover { background: var(--btn-hover) !important; }
+
+    h2 { color: var(--text-primary); }
+    p { color: var(--text-secondary); }
+
+    #network-container {
+      width: 100%;
+      height: 620px;
+      background: var(--graph-bg) !important;
+      border-radius: 16px;
+      border: 1px solid var(--border);
+      box-shadow: var(--card-shadow);
+      overflow: hidden;
+    }
+
+    .graph-stat {
+      background: var(--stat-bg) !important;
+      color: var(--text-secondary) !important;
+      box-shadow: var(--card-shadow) !important;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 0.6rem 1.2rem;
+      font-size: 0.85rem;
+    }
+    .graph-stat strong { color: var(--accent) !important; }
+
+    #graph-stats {
+      display: flex;
+      gap: 1rem;
+      margin-bottom: 1rem;
+      flex-wrap: wrap;
+    }
+
+    .ctrl-btn {
+      padding: 6px 14px;
+      border: 1.5px solid var(--border);
+      border-radius: 8px;
+      background: var(--btn-bg) !important;
+      color: var(--text-secondary) !important;
+      cursor: pointer;
+      font-size: 0.85rem;
+      transition: all 0.2s;
+    }
+    .ctrl-btn:hover {
+      background: var(--btn-hover) !important;
+      color: var(--text-primary) !important;
+    }
+    .ctrl-btn.active {
+      background: var(--accent) !important;
+      color: #fff !important;
+      border-color: var(--accent) !important;
+    }
+
+    .controls {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 1rem;
+      flex-wrap: wrap;
+    }
+
+    .legend {
+      display: flex;
+      gap: 1.5rem;
+      flex-wrap: wrap;
+      margin: 1rem 0;
+    }
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 0.85rem;
+      color: var(--text-secondary) !important;
+    }
+    .legend-dot {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+
+    /* Theme toggle */
+    .theme-toggle {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      cursor: pointer;
+      padding: 4px 8px;
+      border-radius: 20px;
+      user-select: none;
+    }
+    .toggle-track {
+      width: 44px;
+      height: 24px;
+      background: var(--toggle-bg);
+      border-radius: 12px;
+      position: relative;
+      transition: background 0.3s ease;
+      flex-shrink: 0;
+    }
+    .toggle-knob {
+      position: absolute;
+      top: 3px;
+      left: 3px;
+      width: 18px;
+      height: 18px;
+      background: var(--toggle-knob);
+      border-radius: 50%;
+      transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+      box-shadow: 0 1px 4px rgba(0,0,0,0.2);
+    }
+    [data-theme="dark"] .toggle-knob {
+      transform: translateX(20px);
+    }
+    .toggle-icon { font-size: 14px; }
+  </style>
+</head>
+<body>
+  <nav class="navbar">
+    <a class="nav-logo" href="/dashboard">🔄 SkillSwap</a>
+    <div class="nav-links">
+      <a href="/dashboard">Dashboard</a>
+      <a href="/my-skills">My Skills</a>
+      <a href="/matches">Find Matches</a>
+      <a href="/swaps">My Swaps</a>
+      <a href="/portfolio">Portfolio</a>
+      <a href="/network" style="color:#4f46e5;font-weight:600;">Network</a>
+      <div class="theme-toggle" onclick="toggleTheme()">
+        <span class="toggle-icon">☀️</span>
+        <div class="toggle-track">
+          <div class="toggle-knob"></div>
+        </div>
+        <span class="toggle-icon">🌙</span>
+      </div>
+      <button onclick="logout()">Logout</button>
+    </div>
+  </nav>
+
+  <div class="container" style="position:relative;">
+    <h2>🕸️ Skill Network Graph</h2>
+    <p style="margin-bottom:1rem;">Live visualization of all users, skills, and connections — powered by Neo4j.</p>
+
+    <div id="graph-stats">
+      <div class="graph-stat">Nodes: <strong id="node-count">—</strong></div>
+      <div class="graph-stat">Edges: <strong id="edge-count">—</strong></div>
+      <div class="graph-stat">Users: <strong id="user-count">—</strong></div>
+      <div class="graph-stat">Skills: <strong id="skill-count">—</strong></div>
+    </div>
+
+    <div class="controls">
+      <button class="ctrl-btn active" onclick="setFilter('all', this)">All</button>
+      <button class="ctrl-btn" onclick="setFilter('users', this)">Users Only</button>
+      <button class="ctrl-btn" onclick="setFilter('swapped', this)">Swap Connections</button>
+      <button class="ctrl-btn" onclick="setFilter('teaching', this)">Teaching Links</button>
+      <button class="ctrl-btn" onclick="resetView()">🔄 Reset View</button>
+    </div>
+
+    <div class="legend">
+      <div class="legend-item"><div class="legend-dot" style="background:#4f46e5;"></div> User</div>
+      <div class="legend-item"><div class="legend-dot" style="background:#10b981;"></div> Skill (Technology)</div>
+      <div class="legend-item"><div class="legend-dot" style="background:#f59e0b;"></div> Skill (Music/Art)</div>
+      <div class="legend-item"><div class="legend-dot" style="background:#ef4444;"></div> Skill (Language)</div>
+      <div class="legend-item"><div class="legend-dot" style="background:#8b5cf6;"></div> Skill (Other)</div>
+      <div class="legend-item"><div style="width:24px;height:3px;background:#4f46e5;border-radius:2px;"></div> Can Teach</div>
+      <div class="legend-item"><div style="width:24px;height:3px;background:#f59e0b;border-radius:2px;border-top:2px dashed #f59e0b;"></div> Wants to Learn</div>
+      <div class="legend-item"><div style="width:24px;height:3px;background:#10b981;border-radius:2px;"></div> Swapped With</div>
+    </div>
+
+    <div id="network-container"></div>
+  </div>
+
+  <script>
+    // ── Theme ──────────────────────────────────────────
+
+    function toggleTheme() {
+      const current = document.documentElement.getAttribute('data-theme');
+      const next = current === 'dark' ? 'light' : 'dark';
+      document.documentElement.setAttribute('data-theme', next);
+      localStorage.setItem('theme', next);
+      if (rawData) renderGraph(rawData.nodes, rawData.edges);
+    }
+
+    // ── State ──────────────────────────────────────────
+    let network = null;
+    let allNodes = null;
+    let allEdges = null;
+    let rawData = null;
+
+    // ── Color helpers ──────────────────────────────────
+    function getNodeColor(node) {
+      const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+      if (node.type === 'user') return {
+        background: isDark ? '#6366f1' : '#4f46e5',
+        border: isDark ? '#818cf8' : '#3730a3',
+        highlight: { background: isDark ? '#818cf8' : '#6366f1', border: isDark ? '#a5b4fc' : '#4f46e5' }
+      };
+      const cat = (node.category || '').toLowerCase();
+      if (cat === 'technology') return {
+        background: isDark ? '#059669' : '#10b981',
+        border: isDark ? '#34d399' : '#059669',
+        highlight: { background: '#34d399', border: '#10b981' }
+      };
+      if (cat === 'music' || cat === 'art') return {
+        background: isDark ? '#d97706' : '#f59e0b',
+        border: isDark ? '#fbbf24' : '#d97706',
+        highlight: { background: '#fbbf24', border: '#f59e0b' }
+      };
+      if (cat === 'language') return {
+        background: isDark ? '#dc2626' : '#ef4444',
+        border: isDark ? '#f87171' : '#dc2626',
+        highlight: { background: '#f87171', border: '#ef4444' }
+      };
+      if (cat === 'cooking' || cat === 'sports') return {
+        background: isDark ? '#0891b2' : '#06b6d4',
+        border: isDark ? '#22d3ee' : '#0891b2',
+        highlight: { background: '#22d3ee', border: '#06b6d4' }
+      };
+      return {
+        background: isDark ? '#7c3aed' : '#8b5cf6',
+        border: isDark ? '#a78bfa' : '#7c3aed',
+        highlight: { background: '#a78bfa', border: '#8b5cf6' }
+      };
+    }
+
+    function getEdgeColor(type) {
+      if (type === 'CAN_TEACH')       return { color: '#4f46e5', opacity: 0.6 };
+      if (type === 'WANTS_TO_LEARN')  return { color: '#f59e0b', opacity: 0.6 };
+      if (type === 'SWAPPED_WITH')    return { color: '#10b981', opacity: 0.9 };
+      return { color: '#9ca3af', opacity: 0.4 };
+    }
+
+    // ── Render ─────────────────────────────────────────
+    function renderGraph(nodes, edges) {
+      const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+
+      const visNodes = new vis.DataSet(nodes.map(n => ({
+        id: n.id,
+        label: n.label,
+        color: getNodeColor(n),
+        font: {
+          color: n.type === 'user'
+            ? '#ffffff'
+            : (isDark ? '#e5e7eb' : '#1f2937'),
+          size: n.type === 'user' ? 13 : 11,
+          bold: n.type === 'user'
+        },
+        size: n.type === 'user' ? 28 : 18,
+        shape: n.type === 'user' ? 'circle' : 'dot',
+        borderWidth: 2,
+        shadow: n.type === 'user',
+        title: n.type === 'user'
+          ? `👤 ${n.label}`
+          : `🎯 ${n.label} (${n.category})`
+      })));
+
+      const visEdges = new vis.DataSet(edges.map((e, i) => ({
+        id: i,
+        from: e.from,
+        to: e.to,
+        color: getEdgeColor(e.type),
+        width: e.type === 'SWAPPED_WITH' ? 3 : 1.5,
+        dashes: e.type === 'WANTS_TO_LEARN',
+        arrows: { to: { enabled: true, scaleFactor: 0.6 } },
+        smooth: { type: 'continuous' },
+        title: e.type.replace(/_/g, ' ')
+      })));
+
+      allNodes = visNodes;
+      allEdges = visEdges;
+
+      const container = document.getElementById('network-container');
+
+      const options = {
+        physics: {
+          enabled: true,
+          forceAtlas2Based: {
+            gravitationalConstant: -50,
+            centralGravity: 0.01,
+            springLength: 120,
+            springConstant: 0.08
+          },
+          solver: 'forceAtlas2Based',
+          stabilization: { iterations: 150 }
+        },
+        interaction: {
+          hover: true,
+          tooltipDelay: 100,
+          zoomView: true,
+          dragView: true
+        },
+        layout: { improvedLayout: true },
+        nodes: {
+          font: { color: isDark ? '#e5e7eb' : '#1f2937' }
+        }
+      };
+
+      if (network) network.destroy();
+      network = new vis.Network(container, { nodes: visNodes, edges: visEdges }, options);
+
+      // Click to highlight connections
+      network.on('click', params => {
+        if (params.nodes.length > 0) {
+          const nodeId = params.nodes[0];
+          const connectedNodes = network.getConnectedNodes(nodeId);
+          allNodes.update(allNodes.get().map(n => ({
+            ...n,
+            opacity: connectedNodes.includes(n.id) || n.id === nodeId ? 1 : 0.15
+          })));
+        } else {
+          allNodes.update(allNodes.get().map(n => ({ ...n, opacity: 1 })));
+        }
+      });
+    }
+
+    // ── Filters ────────────────────────────────────────
+    function setFilter(type, btn) {
+      document.querySelectorAll('.ctrl-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      if (!rawData) return;
+
+      let filteredNodes = rawData.nodes;
+      let filteredEdges = rawData.edges;
+
+      if (type === 'users') {
+        filteredNodes = rawData.nodes.filter(n => n.type === 'user');
+        filteredEdges = rawData.edges.filter(e => e.type === 'SWAPPED_WITH');
+      } else if (type === 'swapped') {
+        const swappedEdges = rawData.edges.filter(e => e.type === 'SWAPPED_WITH');
+        const ids = new Set(swappedEdges.flatMap(e => [e.from, e.to]));
+        filteredNodes = rawData.nodes.filter(n => ids.has(n.id));
+        filteredEdges = swappedEdges;
+      } else if (type === 'teaching') {
+        filteredEdges = rawData.edges.filter(e => e.type === 'CAN_TEACH');
+        const ids = new Set(filteredEdges.flatMap(e => [e.from, e.to]));
+        filteredNodes = rawData.nodes.filter(n => ids.has(n.id));
+      }
+
+      renderGraph(filteredNodes, filteredEdges);
+    }
+
+    function resetView() {
+      if (network) network.fit({ animation: { duration: 800, easingFunction: 'easeInOutQuad' } });
+    }
+
+    // ── Load ───────────────────────────────────────────
+    async function loadGraph() {
+      const res = await fetch('/api/network');
+      rawData = await res.json();
+
+      const users = rawData.nodes.filter(n => n.type === 'user');
+      const skills = rawData.nodes.filter(n => n.type === 'skill');
+      document.getElementById('node-count').textContent = rawData.nodes.length;
+      document.getElementById('edge-count').textContent = rawData.edges.length;
+      document.getElementById('user-count').textContent = users.length;
+      document.getElementById('skill-count').textContent = skills.length;
+
+      renderGraph(rawData.nodes, rawData.edges);
+    }
+
+    async function logout() {
+      await fetch('/auth/logout', { method: 'POST' });
+      window.location.href = '/';
+    }
+
+    window.addEventListener('load', () => setTimeout(loadGraph, 300));
+  </script>
+</body>
+</html>

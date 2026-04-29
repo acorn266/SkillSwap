@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <title>My Swaps — SkillSwap</title>
+  <link rel="stylesheet" href="/css/style.css"/>
+  <script src="/js/theme.js"></script>
+</head>
+<body>
+  <nav class="navbar">
+    <a class="nav-logo" href="/dashboard">🔄 SkillSwap</a>
+    <div class="nav-links">
+      <a href="/dashboard">Dashboard</a>
+      <a href="/my-skills">My Skills</a>
+      <a href="/matches">Find Matches</a>
+      <a href="/network">Network</a>
+      <a href="/swaps">My Swaps</a>
+      <div class="theme-toggle" onclick="toggleTheme()">
+  <span class="toggle-icon">☀️</span>
+  <div class="toggle-track">
+    <div class="toggle-knob"></div>
+  </div>
+  <span class="toggle-icon">🌙</span>
+</div>
+      <button onclick="logout()">Logout</button>
+    </div>
+  </nav>
+
+  <div class="container">
+
+    <!-- Incoming requests -->
+    <div class="card" style="margin-bottom:1.5rem;">
+      <h3>📬 Incoming Requests</h3>
+      <p style="color:#6b7280;font-size:0.9rem;margin-bottom:1rem;">People who want to swap with you.</p>
+      <div id="incoming-list"><p class="empty-msg">No incoming requests.</p></div>
+    </div>
+
+    <!-- Outgoing requests -->
+    <div class="card" style="margin-bottom:1.5rem;">
+      <h3>📤 Requests I Sent</h3>
+      <p style="color:#6b7280;font-size:0.9rem;margin-bottom:1rem;">Waiting for their response.</p>
+      <div id="outgoing-list"><p class="empty-msg">No outgoing requests.</p></div>
+    </div>
+
+    <!-- Active swaps -->
+    <div class="card">
+      <h3>🤝 Active Swaps</h3>
+      <p style="color:#6b7280;font-size:0.9rem;margin-bottom:1rem;">Your confirmed skill exchanges.</p>
+      <div id="active-list"><p class="empty-msg">No active swaps yet.</p></div>
+    </div>
+
+  </div>
+
+  <script>
+    loadAll();
+
+    async function loadAll() {
+      loadIncoming();
+      loadOutgoing();
+      loadActive();
+    }
+
+    async function loadIncoming() {
+      const res = await fetch('/swaps/incoming');
+      const requests = await res.json();
+      const el = document.getElementById('incoming-list');
+
+      if (!requests.length) {
+        el.innerHTML = '<p class="empty-msg">No incoming requests.</p>';
+        return;
+      }
+
+      el.innerHTML = requests.map(r => `
+        <div class="swap-row">
+          <div class="avatar small">${r.sender_name.charAt(0)}</div>
+          <div class="swap-info">
+            <strong>${r.sender_name}</strong>
+            <span>Offers <span class="skill-tag offer" style="padding:2px 8px;">${r.offered_skill}</span> 
+            for your <span class="skill-tag want" style="padding:2px 8px;">${r.wanted_skill}</span></span>
+          </div>
+          <div class="swap-actions">
+            <button class="accept-btn" onclick="respond(${r.id}, 'accepted')">✓ Accept</button>
+            <button class="decline-btn" onclick="respond(${r.id}, 'declined')">✗ Decline</button>
+          </div>
+        </div>`).join('');
+    }
+
+    async function loadOutgoing() {
+      const res = await fetch('/swaps/outgoing');
+      const requests = await res.json();
+      const el = document.getElementById('outgoing-list');
+
+      if (!requests.length) {
+        el.innerHTML = '<p class="empty-msg">No outgoing requests.</p>';
+        return;
+      }
+
+      el.innerHTML = requests.map(r => `
+        <div class="swap-row">
+          <div class="avatar small">${r.receiver_name.charAt(0)}</div>
+          <div class="swap-info">
+            <strong>${r.receiver_name}</strong>
+            <span>You offered <span class="skill-tag offer" style="padding:2px 8px;">${r.offered_skill}</span> 
+            for <span class="skill-tag want" style="padding:2px 8px;">${r.wanted_skill}</span></span>
+          </div>
+          <span class="status-badge ${r.status}">${r.status}</span>
+        </div>`).join('');
+    }
+
+    async function loadActive() {
+      const res = await fetch('/swaps/active');
+      const swaps = await res.json();
+      const el = document.getElementById('active-list');
+
+      if (!swaps.length) {
+        el.innerHTML = '<p class="empty-msg">No active swaps yet.</p>';
+        return;
+      }
+
+      el.innerHTML = swaps.map(s => `
+        <div class="swap-row">
+          <div class="avatar small">${s.partner_name.charAt(0)}</div>
+          <div class="swap-info">
+            <strong>${s.partner_name}</strong>
+            <span>You teach <span class="skill-tag offer" style="padding:2px 8px;">${s.i_teach}</span> 
+            · You learn <span class="skill-tag want" style="padding:2px 8px;">${s.i_learn}</span></span>
+          </div>
+          <span class="status-badge accepted">active</span>
+        </div>`).join('');
+    }
+
+    async function respond(requestId, action) {
+      const res = await fetch('/swaps/respond', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ requestId, action })
+      });
+      const data = await res.json();
+      if (data.success) loadAll();
+      else alert(data.error);
+    }
+
+    async function logout() {
+      await fetch('/auth/logout', { method: 'POST' });
+      window.location.href = '/';
+    }
+  </script>
+</body>
+</html>

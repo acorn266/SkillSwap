@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Dashboard — SkillSwap</title>
+  <link rel="stylesheet" href="/css/style.css"/>
+  <script src="/js/theme.js"></script>
+</head>
+<body>
+  <nav class="navbar">
+    <a class="nav-logo" href="/dashboard">🔄 SkillSwap</a>
+    <div class="nav-links">
+      <a href="/dashboard">Dashboard</a>
+      <a href="/my-skills">My Skills</a>
+      <a href="/matches">Find Matches</a>
+      <a href="/swaps">My Swaps</a>
+      <a href="/network">Network</a>
+      <a href="/portfolio">Portfolio</a>
+      <button onclick="logout()">Logout</button>
+    </div>
+  </nav>
+
+  <div class="container">
+    <!-- Welcome -->
+    <div style="margin-bottom:2rem;">
+      <h2>Welcome back, <span id="welcome-name"></span> 👋</h2>
+      <p style="color:#6b7280;">Here's what's happening with your skill exchanges.</p>
+    </div>
+
+    <!-- Stats row -->
+    <div class="stats-row">
+      <div class="stat-card">
+        <div class="stat-icon">🧠</div>
+        <div class="stat-val" id="stat-skills">—</div>
+        <div class="stat-lbl">Skills Listed</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon">🤝</div>
+        <div class="stat-val" id="stat-swaps">—</div>
+        <div class="stat-lbl">Active Swaps</div>
+      </div>
+      <div class="stat-card highlight" id="pending-card">
+        <div class="stat-icon">📬</div>
+        <div class="stat-val" id="stat-pending">—</div>
+        <div class="stat-lbl">Pending Requests</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon">📁</div>
+        <div class="stat-val" id="stat-portfolio">—</div>
+        <div class="stat-lbl">Portfolio</div>
+      </div>
+    </div>
+
+    <div class="two-col" style="margin-top:1.5rem;">
+
+      <!-- Recent activity -->
+      <div class="card">
+        <h3>🕐 Recent Activity</h3>
+        <br/>
+        <div id="recent-swaps"><p class="empty-msg">No activity yet.</p></div>
+        <div style="margin-top:1rem;display:flex;gap:8px;flex-wrap:wrap;">
+          <a href="/matches"><button class="primary-btn" style="width:auto;padding:0.5rem 1.25rem;font-size:0.9rem;">Find Matches</button></a>
+          <a href="/swaps"><button class="secondary-btn">View All Swaps</button></a>
+        </div>
+      </div>
+
+      <!-- Right column -->
+      <div>
+        <!-- Trending skills from Redis -->
+        <div class="card" style="margin-bottom:1rem;">
+          <h3>🔥 Trending Skills</h3>
+          <p style="color:#6b7280;font-size:0.82rem;margin-bottom:0.75rem;">Most requested on SkillSwap · powered by Redis</p>
+          <div id="trending-list"><p class="empty-msg">No data yet.</p></div>
+        </div>
+
+        <!-- Quick links -->
+        <div class="card">
+          <h3>⚡ Quick Actions</h3>
+          <br/>
+          <a href="/my-skills" class="quick-link">➕ Add a new skill</a>
+          <a href="/matches" class="quick-link">🎯 Find swap partners</a>
+          <a href="/swaps" class="quick-link">📬 Check swap requests</a>
+          <a href="/portfolio" class="quick-link">📁 Update your portfolio</a>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <script>
+    // Check session
+    fetch('/auth/me').then(r => r.json()).then(data => {
+      if (!data.loggedIn) { window.location.href = '/'; return; }
+      document.getElementById('welcome-name').textContent = data.name;
+    });
+
+    // Heartbeat for Redis online presence
+    setInterval(() => fetch('/portfolio/heartbeat', { method: 'POST' }), 30000);
+    fetch('/portfolio/heartbeat', { method: 'POST' });
+
+    // Load dashboard data
+    fetch('/api/dashboard').then(r => r.json()).then(data => {
+      const { stats, recentSwaps, trendingSkills } = data;
+
+      // Stats
+      document.getElementById('stat-skills').textContent = stats.skills;
+      document.getElementById('stat-swaps').textContent = stats.activeSwaps;
+      document.getElementById('stat-pending').textContent = stats.pendingRequests;
+      document.getElementById('stat-portfolio').textContent = stats.portfolioFilled ? '✅ Done' : '⚠️ Incomplete';
+
+      if (stats.pendingRequests > 0) {
+        document.getElementById('pending-card').style.borderColor = '#f59e0b';
+        document.getElementById('pending-card').style.background = '#fffbeb';
+      }
+
+      // Recent swaps
+      if (recentSwaps.length) {
+        document.getElementById('recent-swaps').innerHTML = recentSwaps.map(s => `
+          <div class="activity-row">
+            <div class="avatar small">${s.partner_name.charAt(0)}</div>
+            <div>
+              <div style="font-size:0.9rem;font-weight:500;">${s.partner_name}</div>
+              <div style="font-size:0.82rem;color:#6b7280;">
+                ${s.offered_skill} ⇄ ${s.wanted_skill} · 
+                <span class="status-badge ${s.status}" style="font-size:0.75rem;">${s.status}</span>
+              </div>
+            </div>
+          </div>`).join('');
+      }
+
+      // Trending skills
+      if (trendingSkills.length) {
+        const max = trendingSkills[0].count;
+        document.getElementById('trending-list').innerHTML = trendingSkills.map((s, i) => `
+          <div class="trending-row">
+            <span class="trending-rank">${i + 1}</span>
+            <span class="trending-name">${s.skill}</span>
+            <div class="trending-bar-bg">
+              <div class="trending-bar" style="width:${(s.count/max)*100}%"></div>
+            </div>
+            <span class="trending-count">${s.count}</span>
+          </div>`).join('');
+      }
+    });
+
+    async function logout() {
+      await fetch('/auth/logout', { method: 'POST' });
+      window.location.href = '/';
+    }
+  </script>
+</body>
+</html>
