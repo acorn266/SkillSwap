@@ -4,7 +4,6 @@
 
 ### A multi-database skill exchange platform
 
-*Built for the Next Gen Databases course*
 *Demonstrates real-world usage of PostgreSQL, Neo4j, CouchDB, and Redis*
 
 ![Node.js](https://img.shields.io/badge/Node.js-339933?style=for-the-badge&logo=node.js&logoColor=white)
@@ -54,22 +53,6 @@ Each of the four databases is used for what it does best:
 - 📁 **My Portfolio** — Rich user profiles with document versioning (CouchDB)
 - 🔥 **Trending Skills** — Real-time leaderboard of most-requested skills (Redis Sorted Sets)
 - 🔄 **My Swaps** — Track all active and completed skill exchanges
-
----
-
-## 📸 Screenshots
-
-| Dashboard | My Skills |
-|-----------|-----------|
-| ![Dashboard](screenshots/dashboard.png) | ![My Skills](screenshots/my-skills.png) |
-
-| Skill Network Graph | Find Matches |
-|--------------------|--------------|
-| ![Network](screenshots/network.png) | ![Matches](screenshots/matches.png) |
-
-| Portfolio |
-|-----------|
-| ![Portfolio](screenshots/portfolio.png) |
 
 ---
 
@@ -157,13 +140,12 @@ skillswap/
 
 ## 👩‍💻 Author
 
-**Aastha** — AI & Data Science Student
+**Aastha** 
 
 [![LinkedIn](https://img.shields.io/badge/LinkedIn-0077B5?style=for-the-badge&logo=linkedin&logoColor=white)](https://www.linkedin.com/in/aastha-karn-61876a298/)
-[![GitHub](https://img.shields.io/badge/GitHub-100000?style=for-the-badge&logo=github&logoColor=white)](https://github.com/YOUR_USERNAME)
 
 ---
 
 <div align="center">
-Built with ❤️ for the Next Gen Databases course
+Built with ❤️ 
 </div>
