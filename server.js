@@ -30,6 +30,109 @@ app.use('/skills', skillRoutes);
 const swapRoutes = require('./routes/swaps');
 app.use('/swaps', swapRoutes);
 
+app.get('/api/analytics', async (req, res) => {
+  if (!req.session.userId) return res.status(401).json({ error: 'Not logged in' });
+  const pool = require('./db/postgres');
+  try {
+    // Total platform stats
+    const totals = await pool.query(`
+      SELECT
+        (SELECT COUNT(*) FROM users) as total_users,
+        (SELECT COUNT(*) FROM skills) as total_skills,
+        (SELECT COUNT(*) FROM swap_requests) as total_swaps,
+        (SELECT COUNT(*) FROM swap_requests WHERE status = 'accepted') as accepted_swaps,
+        (SELECT COUNT(*) FROM reviews) as total_reviews,
+        (SELECT ROUND(AVG(rating),1) FROM reviews) as avg_rating
+    `);
+
+    // Top skills being offered
+    const topOfferedSkills = await pool.query(`
+      SELECT skill_name, COUNT(*) as count
+      FROM skills WHERE type = 'offer'
+      GROUP BY skill_name
+      ORDER BY count DESC
+      LIMIT 8
+    `);
+
+    // Top skills being wanted
+    const topWantedSkills = await pool.query(`
+      SELECT skill_name, COUNT(*) as count
+      FROM skills WHERE type = 'want'
+      GROUP BY skill_name
+      ORDER BY count DESC
+      LIMIT 8
+    `);
+
+    // Most active users (by swap count)
+    const mostActiveUsers = await pool.query(`
+      SELECT u.name, u.location,
+        COUNT(sr.id) as swap_count,
+        (SELECT COUNT(*) FROM skills s WHERE s.user_id = u.id) as skill_count
+      FROM users u
+      LEFT JOIN swap_requests sr ON (sr.sender_id = u.id OR sr.receiver_id = u.id)
+      GROUP BY u.id, u.name, u.location
+      ORDER BY swap_count DESC
+      LIMIT 8
+    `);
+
+    // Swaps by status breakdown
+    const swapStatus = await pool.query(`
+      SELECT status, COUNT(*) as count
+      FROM swap_requests
+      GROUP BY status
+    `);
+
+    // Skills by category
+    const byCategory = await pool.query(`
+      SELECT category, COUNT(*) as count
+      FROM skills
+      GROUP BY category
+      ORDER BY count DESC
+    `);
+
+    // Swap activity over time (last 7 days)
+    const swapTimeline = await pool.query(`
+      SELECT
+        DATE(created_at) as date,
+        COUNT(*) as swaps
+      FROM swap_requests
+      WHERE created_at >= NOW() - INTERVAL '7 days'
+      GROUP BY DATE(created_at)
+      ORDER BY date ASC
+    `);
+
+    // Top rated users
+    const topRated = await pool.query(`
+      SELECT u.name, ROUND(AVG(r.rating),1) as avg_rating, COUNT(r.id) as review_count
+      FROM reviews r
+      JOIN users u ON r.reviewee_id = u.id
+      GROUP BY u.id, u.name
+      HAVING COUNT(r.id) > 0
+      ORDER BY avg_rating DESC
+      LIMIT 5
+    `);
+
+    res.json({
+      totals: totals.rows[0],
+      topOfferedSkills: topOfferedSkills.rows,
+      topWantedSkills: topWantedSkills.rows,
+      mostActiveUsers: mostActiveUsers.rows,
+      swapStatus: swapStatus.rows,
+      byCategory: byCategory.rows,
+      swapTimeline: swapTimeline.rows,
+      topRated: topRated.rows
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Analytics failed' });
+  }
+});
+
+app.get('/analytics', (req, res) => {
+  if (!req.session.userId) return res.redirect('/');
+  res.sendFile(path.join(__dirname, 'views', 'analytics.html'));
+});
+
 const portfolioRoutes = require('./routes/portfolio');
 app.use('/portfolio', portfolioRoutes);
 
@@ -41,6 +144,88 @@ app.get('/network', (req, res) => {
 app.get('/portfolio', (req, res) => {
   if (!req.session.userId) return res.redirect('/');
   res.sendFile(path.join(__dirname, 'views', 'portfolio.html'));
+});
+
+app.get('/api/recommendations', async (req, res) => {
+  if (!req.session.userId) return res.status(401).json({ error: 'Not logged in' });
+  const driver = require('./db/neo4j');
+  const pool = require('./db/postgres');
+  const session = driver.session();
+  const userId = req.session.userId.toString();
+
+  try {
+    // Friend-of-a-friend via SWAPPED_WITH edges
+    const fofResult = await session.run(`
+      MATCH (me:User {id: $userId})-[:SWAPPED_WITH*2..3]-(fof:User)
+      WHERE fof.id <> $userId
+      AND NOT (me)-[:SWAPPED_WITH]-(fof)
+      RETURN DISTINCT fof.id AS userId, fof.name AS name,
+             COUNT(*) AS connectionStrength
+      ORDER BY connectionStrength DESC
+      LIMIT 6
+    `, { userId });
+
+    // Skill-based recommendations — users who share skills you want
+    const skillResult = await session.run(`
+      MATCH (me:User {id: $userId})-[:WANTS_TO_LEARN]->(s:Skill)<-[:CAN_TEACH]-(other:User)
+      WHERE other.id <> $userId
+      AND NOT (me)-[:SWAPPED_WITH]-(other)
+      RETURN DISTINCT other.id AS userId, other.name AS name,
+             collect(DISTINCT s.name) AS matchingSkills,
+             COUNT(DISTINCT s) AS skillMatch
+      ORDER BY skillMatch DESC
+      LIMIT 6
+    `, { userId });
+
+    // Get extra info from Postgres for each recommended user
+    const fofUsers = await Promise.all(fofResult.records.map(async r => {
+      const pgRes = await pool.query(
+        `SELECT u.name, u.location,
+          (SELECT COUNT(*) FROM skills WHERE user_id = u.id AND type = 'offer') as offers,
+          (SELECT COUNT(*) FROM skills WHERE user_id = u.id AND type = 'want') as wants,
+          (SELECT ROUND(AVG(rating),1) FROM reviews WHERE reviewee_id = u.id) as rating
+         FROM users u WHERE u.id = $1`,
+        [parseInt(r.get('userId'))]
+      );
+      return {
+        userId: r.get('userId'),
+        name: r.get('name'),
+        connectionStrength: r.get('connectionStrength').toNumber(),
+        reason: 'friend-of-a-friend',
+        ...pgRes.rows[0]
+      };
+    }));
+
+    const skillUsers = await Promise.all(skillResult.records.map(async r => {
+      const pgRes = await pool.query(
+        `SELECT u.name, u.location,
+          (SELECT COUNT(*) FROM skills WHERE user_id = u.id AND type = 'offer') as offers,
+          (SELECT COUNT(*) FROM skills WHERE user_id = u.id AND type = 'want') as wants,
+          (SELECT ROUND(AVG(rating),1) FROM reviews WHERE reviewee_id = u.id) as rating
+         FROM users u WHERE u.id = $1`,
+        [parseInt(r.get('userId'))]
+      );
+      return {
+        userId: r.get('userId'),
+        name: r.get('name'),
+        matchingSkills: r.get('matchingSkills'),
+        skillMatch: r.get('skillMatch').toNumber(),
+        reason: 'skill-match',
+        ...pgRes.rows[0]
+      };
+    }));
+
+    res.json({ fofUsers, skillUsers });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Recommendations failed' });
+  } finally {
+    await session.close();
+  }
+});
+app.get('/recommendations', (req, res) => {
+  if (!req.session.userId) return res.redirect('/');
+  res.sendFile(path.join(__dirname, 'views', 'recommendations.html'));
 });
 
 app.get('/api/dashboard', async (req, res) => {
@@ -191,3 +376,4 @@ app.get('/api/network', async (req, res) => {
     await session.close();
   }
 });
+

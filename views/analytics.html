@@ -1,0 +1,414 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <title>Analytics — SkillSwap</title>
+  <script src="/js/theme.js"></script>
+  <script src="/js/dbfeed.js"></script>
+  <link rel="stylesheet" href="/css/style.css"/>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+  <style>
+    .analytics-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 1rem;
+      margin-bottom: 1.5rem;
+    }
+    .analytics-grid-2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1.5rem;
+      margin-bottom: 1.5rem;
+    }
+    .analytics-grid-3 {
+      display: grid;
+      grid-template-columns: 2fr 1fr;
+      gap: 1.5rem;
+      margin-bottom: 1.5rem;
+    }
+    .big-stat {
+      background: var(--surface);
+      border-radius: 14px;
+      padding: 1.5rem;
+      box-shadow: var(--card-shadow);
+      border: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+    }
+    .big-stat-icon {
+      font-size: 2rem;
+      width: 56px;
+      height: 56px;
+      border-radius: 14px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+    .big-stat-val {
+      font-size: 1.8rem;
+      font-weight: 700;
+      color: var(--text-primary);
+      line-height: 1;
+    }
+    .big-stat-lbl {
+      font-size: 0.8rem;
+      color: var(--text-secondary);
+      margin-top: 4px;
+    }
+    .chart-card {
+      background: var(--surface);
+      border-radius: 14px;
+      padding: 1.5rem;
+      box-shadow: var(--card-shadow);
+      border: 1px solid var(--border);
+    }
+    .chart-card h3 {
+      font-size: 1rem;
+      font-weight: 600;
+      color: var(--text-primary);
+      margin-bottom: 0.25rem;
+    }
+    .chart-card .subtitle {
+      font-size: 0.78rem;
+      color: var(--text-secondary);
+      margin-bottom: 1.25rem;
+    }
+    .chart-wrap {
+      position: relative;
+      height: 220px;
+    }
+    .chart-wrap-tall {
+      position: relative;
+      height: 280px;
+    }
+    .user-table { width: 100%; border-collapse: collapse; }
+    .user-table th {
+      text-align: left;
+      font-size: 0.75rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--text-secondary);
+      padding: 0 0 0.75rem;
+      border-bottom: 1px solid var(--border);
+    }
+    .user-table td {
+      padding: 0.65rem 0;
+      font-size: 0.88rem;
+      color: var(--text-primary);
+      border-bottom: 1px solid var(--border);
+    }
+    .user-table tr:last-child td { border-bottom: none; }
+    .rank-badge {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 22px;
+      height: 22px;
+      border-radius: 50%;
+      font-size: 0.75rem;
+      font-weight: 700;
+    }
+    .rank-1 { background: #fef3c7; color: #92400e; }
+    .rank-2 { background: #f3f4f6; color: #374151; }
+    .rank-3 { background: #fef3c7; color: #78350f; }
+    .rank-n { background: var(--btn-hover); color: var(--text-secondary); }
+    .db-badge {
+      display: inline-block;
+      font-size: 0.7rem;
+      font-weight: 600;
+      padding: 2px 8px;
+      border-radius: 20px;
+      margin-left: 8px;
+      vertical-align: middle;
+    }
+    .db-pg { background: #E6F1FB; color: #0C447C; }
+    .page-header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      margin-bottom: 1.5rem;
+    }
+    .status-pill {
+      display: inline-block;
+      padding: 2px 10px;
+      border-radius: 20px;
+      font-size: 0.78rem;
+      font-weight: 500;
+    }
+    .pill-pending { background: #fef3c7; color: #92400e; }
+    .pill-accepted { background: #ecfdf5; color: #065f46; }
+    .pill-declined { background: #fef2f2; color: #991b1b; }
+  </style>
+</head>
+<body>
+  <nav class="navbar">
+    <a class="nav-logo" href="/dashboard">🔄 SkillSwap</a>
+    <div class="nav-links">
+      <a href="/dashboard">Dashboard</a>
+      <a href="/my-skills">My Skills</a>
+      <a href="/matches">Find Matches</a>
+      <a href="/swaps">My Swaps</a>
+      <a href="/portfolio">Portfolio</a>
+      <a href="/analytics" style="color:var(--accent);font-weight:600;">Analytics</a>
+      <a href="/network">Network</a>
+      <div class="theme-toggle" onclick="toggleTheme()">
+        <span class="toggle-icon">☀️</span>
+        <div class="toggle-track"><div class="toggle-knob"></div></div>
+        <span class="toggle-icon">🌙</span>
+      </div>
+      <button onclick="logout()">Logout</button>
+    </div>
+  </nav>
+
+  <div class="container">
+    <div class="page-header">
+      <div>
+        <h2>📊 Platform Analytics <span class="db-badge db-pg">PostgreSQL</span></h2>
+        <p style="color:var(--text-secondary);margin-top:4px;">Live relational queries across all platform data.</p>
+      </div>
+    </div>
+
+    <!-- Big stats row -->
+    <div class="analytics-grid" id="big-stats">
+      <div class="big-stat">
+        <div class="big-stat-icon" style="background:#ede9fe;">👥</div>
+        <div><div class="big-stat-val" id="s-users">—</div><div class="big-stat-lbl">Total Users</div></div>
+      </div>
+      <div class="big-stat">
+        <div class="big-stat-icon" style="background:#ecfdf5;">🧠</div>
+        <div><div class="big-stat-val" id="s-skills">—</div><div class="big-stat-lbl">Skills Listed</div></div>
+      </div>
+      <div class="big-stat">
+        <div class="big-stat-icon" style="background:#eff6ff;">🤝</div>
+        <div><div class="big-stat-val" id="s-swaps">—</div><div class="big-stat-lbl">Total Swaps</div></div>
+      </div>
+      <div class="big-stat">
+        <div class="big-stat-icon" style="background:#fef3c7;">✅</div>
+        <div><div class="big-stat-val" id="s-accepted">—</div><div class="big-stat-lbl">Accepted Swaps</div></div>
+      </div>
+      <div class="big-stat">
+        <div class="big-stat-icon" style="background:#fce7f3;">⭐</div>
+        <div><div class="big-stat-val" id="s-reviews">—</div><div class="big-stat-lbl">Reviews Given</div></div>
+      </div>
+      <div class="big-stat">
+        <div class="big-stat-icon" style="background:#ecfdf5;">🏅</div>
+        <div><div class="big-stat-val" id="s-rating">—</div><div class="big-stat-lbl">Avg Rating</div></div>
+      </div>
+    </div>
+
+    <!-- Charts row 1 -->
+    <div class="analytics-grid-2">
+      <div class="chart-card">
+        <h3>🎓 Top Skills Being Offered</h3>
+        <div class="subtitle">What users can teach — GROUP BY skill_name</div>
+        <div class="chart-wrap-tall"><canvas id="chart-offered"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <h3>🎯 Top Skills Being Wanted</h3>
+        <div class="subtitle">What users want to learn — GROUP BY skill_name</div>
+        <div class="chart-wrap-tall"><canvas id="chart-wanted"></canvas></div>
+      </div>
+    </div>
+
+    <!-- Charts row 2 -->
+    <div class="analytics-grid-3">
+      <div class="chart-card">
+        <h3>📅 Swap Activity (Last 7 Days)</h3>
+        <div class="subtitle">New swap requests over time</div>
+        <div class="chart-wrap"><canvas id="chart-timeline"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <h3>🗂️ Skills by Category</h3>
+        <div class="subtitle">Distribution across categories</div>
+        <div class="chart-wrap"><canvas id="chart-category"></canvas></div>
+      </div>
+    </div>
+
+    <!-- Charts row 3 -->
+    <div class="analytics-grid-2">
+      <!-- Most active users table -->
+      <div class="chart-card">
+        <h3>🏆 Most Active Users</h3>
+        <div class="subtitle">Ranked by swap activity — JOIN across tables</div>
+        <br/>
+        <table class="user-table" id="active-users-table">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>User</th>
+              <th>Location</th>
+              <th>Skills</th>
+              <th>Swaps</th>
+            </tr>
+          </thead>
+          <tbody id="active-users-body"></tbody>
+        </table>
+      </div>
+
+      <!-- Swap status + top rated -->
+      <div>
+        <div class="chart-card" style="margin-bottom:1.5rem;">
+          <h3>📬 Swap Request Status</h3>
+          <div class="subtitle">Breakdown by outcome</div>
+          <div class="chart-wrap"><canvas id="chart-status"></canvas></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const isDark = () => document.documentElement.getAttribute('data-theme') === 'dark';
+    const textColor = () => isDark() ? '#9ca3af' : '#6b7280';
+    const gridColor = () => isDark() ? '#2e2e3e' : '#f3f4f6';
+
+    const COLORS = ['#4f46e5','#10b981','#f59e0b','#ef4444','#8b5cf6','#06b6d4','#ec4899','#84cc16'];
+
+    let charts = {};
+
+    function destroyAll() {
+      Object.values(charts).forEach(c => c.destroy());
+      charts = {};
+    }
+
+    async function loadAnalytics() {
+      const res = await fetch('/api/analytics');
+      logDB('couchdb', 'GET portfolio_' + userId + ' — document fetch');
+      const data = await res.json();
+
+      // Big stats
+      document.getElementById('s-users').textContent = data.totals.total_users;
+      document.getElementById('s-skills').textContent = data.totals.total_skills;
+      document.getElementById('s-swaps').textContent = data.totals.total_swaps;
+      document.getElementById('s-accepted').textContent = data.totals.accepted_swaps;
+      document.getElementById('s-reviews').textContent = data.totals.total_reviews;
+      document.getElementById('s-rating').textContent = data.totals.avg_rating || '—';
+
+      destroyAll();
+      const dark = isDark();
+      const tc = textColor();
+      const gc = gridColor();
+
+      Chart.defaults.color = tc;
+
+      // Offered skills — horizontal bar
+      charts.offered = new Chart(document.getElementById('chart-offered'), {
+        type: 'bar',
+        data: {
+          labels: data.topOfferedSkills.map(s => s.skill_name),
+          datasets: [{ data: data.topOfferedSkills.map(s => s.count), backgroundColor: COLORS, borderRadius: 6, borderSkipped: false }]
+        },
+        options: {
+          indexAxis: 'y',
+          plugins: { legend: { display: false } },
+          scales: {
+            x: { grid: { color: gc }, ticks: { color: tc } },
+            y: { grid: { display: false }, ticks: { color: tc } }
+          }
+        }
+      });
+
+      // Wanted skills — horizontal bar
+      charts.wanted = new Chart(document.getElementById('chart-wanted'), {
+        type: 'bar',
+        data: {
+          labels: data.topWantedSkills.map(s => s.skill_name),
+          datasets: [{ data: data.topWantedSkills.map(s => s.count), backgroundColor: COLORS.slice().reverse(), borderRadius: 6, borderSkipped: false }]
+        },
+        options: {
+          indexAxis: 'y',
+          plugins: { legend: { display: false } },
+          scales: {
+            x: { grid: { color: gc }, ticks: { color: tc } },
+            y: { grid: { display: false }, ticks: { color: tc } }
+          }
+        }
+      });
+
+      // Timeline — line chart
+      const timeLabels = data.swapTimeline.map(d => new Date(d.date).toLocaleDateString('en-IN', { month: 'short', day: 'numeric' }));
+      charts.timeline = new Chart(document.getElementById('chart-timeline'), {
+        type: 'line',
+        data: {
+          labels: timeLabels.length ? timeLabels : ['No data'],
+          datasets: [{
+            label: 'Swap Requests',
+            data: data.swapTimeline.map(d => d.swaps),
+            borderColor: '#4f46e5',
+            backgroundColor: 'rgba(79,70,229,0.08)',
+            fill: true,
+            tension: 0.4,
+            pointBackgroundColor: '#4f46e5',
+            pointRadius: 4
+          }]
+        },
+        options: {
+          plugins: { legend: { display: false } },
+          scales: {
+            x: { grid: { color: gc }, ticks: { color: tc } },
+            y: { grid: { color: gc }, ticks: { color: tc, stepSize: 1 } }
+          }
+        }
+      });
+
+      // Category — doughnut
+      charts.category = new Chart(document.getElementById('chart-category'), {
+        type: 'doughnut',
+        data: {
+          labels: data.byCategory.map(c => c.category),
+          datasets: [{ data: data.byCategory.map(c => c.count), backgroundColor: COLORS, borderWidth: 2, borderColor: dark ? '#1a1a24' : '#ffffff' }]
+        },
+        options: {
+          cutout: '65%',
+          plugins: {
+            legend: { position: 'bottom', labels: { color: tc, padding: 12, font: { size: 11 } } }
+          }
+        }
+      });
+
+      // Status — doughnut
+      const statusColors = { pending: '#f59e0b', accepted: '#10b981', declined: '#ef4444' };
+      charts.status = new Chart(document.getElementById('chart-status'), {
+        type: 'doughnut',
+        data: {
+          labels: data.swapStatus.map(s => s.status.charAt(0).toUpperCase() + s.status.slice(1)),
+          datasets: [{ data: data.swapStatus.map(s => s.count), backgroundColor: data.swapStatus.map(s => statusColors[s.status] || '#9ca3af'), borderWidth: 2, borderColor: dark ? '#1a1a24' : '#ffffff' }]
+        },
+        options: {
+          cutout: '65%',
+          plugins: {
+            legend: { position: 'bottom', labels: { color: tc, padding: 12, font: { size: 11 } } }
+          }
+        }
+      });
+
+      // Most active users table
+      const tbody = document.getElementById('active-users-body');
+      tbody.innerHTML = data.mostActiveUsers.map((u, i) => `
+        <tr>
+          <td><span class="rank-badge ${i < 3 ? `rank-${i+1}` : 'rank-n'}">${i+1}</span></td>
+          <td><strong>${u.name}</strong></td>
+          <td style="color:var(--text-secondary);">${u.location || '—'}</td>
+          <td>${u.skill_count}</td>
+          <td><strong style="color:var(--accent);">${u.swap_count}</strong></td>
+        </tr>`).join('');
+    }
+
+    // Re-render charts when theme changes (override toggleTheme)
+    const _origToggle = window.toggleTheme;
+    window.toggleTheme = function() {
+      _origToggle();
+      setTimeout(loadAnalytics, 350);
+    };
+
+    async function logout() {
+      await fetch('/auth/logout', { method: 'POST' });
+      window.location.href = '/';
+    }
+
+    loadAnalytics();
+  </script>
+</body>
+</html>

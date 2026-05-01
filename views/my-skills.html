@@ -5,6 +5,7 @@
   <title>My Skills — SkillSwap</title>
   <link rel="stylesheet" href="/css/style.css"/>
   <script src="/js/theme.js"></script>
+  <script src="/js/dbfeed.js"></script>
 </head>
 <body>
   <nav class="navbar">
@@ -12,8 +13,11 @@
     <div class="nav-links">
       <a href="/dashboard">Dashboard</a>
       <a href="/my-skills">My Skills</a>
-      <a href="/network">Network</a>
       <a href="/matches">Find Matches</a>
+      <a href="/swaps">My Swaps</a>
+      <a href="/analytics">Analytics</a>
+      <a href="/portfolio">Portfolio</a>
+      <a href="/network">Network</a>
       <button onclick="logout()">Logout</button>
     </div>
   </nav>
@@ -125,6 +129,8 @@
       } else {
         document.getElementById('skill-msg').textContent = data.error;
       }
+      logDB('postgres', 'INSERT INTO skills (user_id, skill_name, type)');
+      logDB('neo4j', 'MERGE (u:User)-[:CAN_TEACH]->(s:Skill)');
     }
 
     async function loadSkills() {

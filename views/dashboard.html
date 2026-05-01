@@ -6,6 +6,7 @@
   <title>Dashboard — SkillSwap</title>
   <link rel="stylesheet" href="/css/style.css"/>
   <script src="/js/theme.js"></script>
+  <script src="/js/dbfeed.js"></script>
 </head>
 <body>
   <nav class="navbar">
@@ -15,8 +16,9 @@
       <a href="/my-skills">My Skills</a>
       <a href="/matches">Find Matches</a>
       <a href="/swaps">My Swaps</a>
-      <a href="/network">Network</a>
+      <a href="/analytics">Analytics</a>
       <a href="/portfolio">Portfolio</a>
+      <a href="/network">Network</a>
       <button onclick="logout()">Logout</button>
     </div>
   </nav>
@@ -101,9 +103,12 @@
 
     // Load dashboard data
     fetch('/api/dashboard').then(r => r.json()).then(data => {
+      logDB('postgres', 'Loaded dashboard stats — COUNT, JOIN queries');
+      logDB('redis', 'Fetched trending skills — ZREVRANGE');
+      logDB('couchdb', 'Checked portfolio completion status');
       const { stats, recentSwaps, trendingSkills } = data;
 
-      // Stats
+  // Stats
       document.getElementById('stat-skills').textContent = stats.skills;
       document.getElementById('stat-swaps').textContent = stats.activeSwaps;
       document.getElementById('stat-pending').textContent = stats.pendingRequests;

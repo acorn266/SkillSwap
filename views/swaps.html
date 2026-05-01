@@ -5,6 +5,7 @@
   <title>My Swaps — SkillSwap</title>
   <link rel="stylesheet" href="/css/style.css"/>
   <script src="/js/theme.js"></script>
+  <script src="/js/dbfeed.js"></script>
 </head>
 <body>
   <nav class="navbar">
@@ -13,8 +14,10 @@
       <a href="/dashboard">Dashboard</a>
       <a href="/my-skills">My Skills</a>
       <a href="/matches">Find Matches</a>
-      <a href="/network">Network</a>
       <a href="/swaps">My Swaps</a>
+      <a href="/analytics">Analytics</a>
+      <a href="/portfolio">Portfolio</a>
+      <a href="/network">Network</a>
       <div class="theme-toggle" onclick="toggleTheme()">
   <span class="toggle-icon">☀️</span>
   <div class="toggle-track">
@@ -62,6 +65,7 @@
 
     async function loadIncoming() {
       const res = await fetch('/swaps/incoming');
+      logDB('postgres', 'SELECT swap_requests JOIN users WHERE receiver_id = me');
       const requests = await res.json();
       const el = document.getElementById('incoming-list');
 

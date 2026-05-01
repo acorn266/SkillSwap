@@ -5,6 +5,7 @@
   <title>My Portfolio — SkillSwap</title>
   <link rel="stylesheet" href="/css/style.css"/>
   <script src="/js/theme.js"></script>
+  <script src="/js/dbfeed.js"></script>
 </head>
 <body>
   <nav class="navbar">
@@ -12,10 +13,11 @@
     <div class="nav-links">
       <a href="/dashboard">Dashboard</a>
       <a href="/my-skills">My Skills</a>
-      <a href="/network">Network</a>
       <a href="/matches">Find Matches</a>
       <a href="/swaps">My Swaps</a>
+      <a href="/analytics">Analytics</a>
       <a href="/portfolio">Portfolio</a>
+      <a href="/network">Network</a>
       <div class="theme-toggle" onclick="toggleTheme()">
         <span class="toggle-icon">☀️</span>
         <div class="toggle-track">
@@ -67,6 +69,7 @@
   <script>
     loadPortfolio();
 
+
     // Heartbeat — tell Redis we're online
     setInterval(() => {
       fetch('/portfolio/heartbeat', { method: 'POST' });
@@ -75,6 +78,7 @@
 
     async function loadPortfolio() {
       const res = await fetch('/portfolio/me');
+      logDB('couchdb', 'GET portfolio_' + userId + ' — document fetch');
       const data = await res.json();
 
       document.getElementById('about').value = data.about || '';
@@ -87,6 +91,7 @@
 
     async function savePortfolio() {
       const about = document.getElementById('about').value;
+      logDB('couchdb', 'GET portfolio_' + userId + ' — document fetch');
       const experience = document.getElementById('experience').value;
       const achievements = document.getElementById('achievements').value.split('\n').filter(l => l.trim());
       const links = document.getElementById('links').value.split('\n').filter(l => l.trim());

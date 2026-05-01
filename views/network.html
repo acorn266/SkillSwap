@@ -5,6 +5,7 @@
   <title>Skill Network — SkillSwap</title>
   <link rel="stylesheet" href="/css/style.css"/>
   <script src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
+  <script src="/js/dbfeed.js"></script>
   <style>
     :root {
       --bg: #f0f2f5;
@@ -73,6 +74,11 @@
       border: 1px solid var(--border);
       box-shadow: var(--card-shadow);
       overflow: hidden;
+    }
+    [data-theme="dark"] #network-container {
+      background: #0d0f1e !important;
+      border-color: rgba(99,102,241,0.3) !important;
+      box-shadow: 0 0 40px rgba(79,70,229,0.15) inset !important;
     }
 
     .graph-stat {
@@ -184,6 +190,7 @@
       <a href="/my-skills">My Skills</a>
       <a href="/matches">Find Matches</a>
       <a href="/swaps">My Swaps</a>
+      <a href="/analytics">Analytics</a>
       <a href="/portfolio">Portfolio</a>
       <a href="/network" style="color:#4f46e5;font-weight:600;">Network</a>
       <div class="theme-toggle" onclick="toggleTheme()">
@@ -405,25 +412,40 @@
 
     // ── Load ───────────────────────────────────────────
     async function loadGraph() {
+      if (typeof vis === 'undefined') {
+        setTimeout(loadGraph, 500);
+        return;
+      }
       const res = await fetch('/api/network');
+      logDB('neo4j', 'MATCH (u:User)-[r]-(n) RETURN full graph');  
       rawData = await res.json();
-
       const users = rawData.nodes.filter(n => n.type === 'user');
       const skills = rawData.nodes.filter(n => n.type === 'skill');
       document.getElementById('node-count').textContent = rawData.nodes.length;
       document.getElementById('edge-count').textContent = rawData.edges.length;
       document.getElementById('user-count').textContent = users.length;
       document.getElementById('skill-count').textContent = skills.length;
-
       renderGraph(rawData.nodes, rawData.edges);
     }
+
+// ADD THE TOGGLE OVERRIDE RIGHT HERE ↓ (after loadGraph, before the last line)
+const _origToggle = window.toggleTheme;
+window.toggleTheme = function() {
+  _origToggle();
+  setTimeout(() => {
+    if (rawData) renderGraph(rawData.nodes, rawData.edges);
+  }, 350);
+};
+// ↑ END
+
+window.addEventListener('load', () => setTimeout(loadGraph, 500));
 
     async function logout() {
       await fetch('/auth/logout', { method: 'POST' });
       window.location.href = '/';
     }
 
-    window.addEventListener('load', () => setTimeout(loadGraph, 300));
+    window.addEventListener('load', () => setTimeout(loadGraph, 500));
   </script>
 </body>
 </html>
